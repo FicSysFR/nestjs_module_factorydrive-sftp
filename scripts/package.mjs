@@ -57,7 +57,7 @@ export function validateSatellitePack(report) {
 
 export function parsePackOutput(output) {
   const parsed = JSON.parse(output)
-  const reports = Array.isArray(parsed) ? parsed : [parsed]
+  const reports = Array.isArray(parsed) ? parsed : parsed?.name ? [parsed] : parsed && typeof parsed === 'object' ? Object.values(parsed) : []
   const report = reports[0]
   if (reports.length !== 1 || report === null || typeof report !== 'object' || Array.isArray(report)) {
     throw new Error('npm pack returned an unexpected report')

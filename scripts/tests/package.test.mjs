@@ -4,14 +4,15 @@ import { parsePackOutput, validateSatelliteManifest, validateSatellitePack } fro
 
 const requiredFiles = [{ path: 'LICENSE' }, { path: 'README.md' }, { path: 'dist/index.d.ts' }, { path: 'dist/index.js' }, { path: 'package.json' }]
 
-test('parsePackOutput supports npm 11 and npm 12 reports', () => {
+test('parsePackOutput supports npm 11 arrays and npm 12 maps', () => {
   const report = { name: '@ficsysfr/nestjs_module_factorydrive-sftp', version: '2.0.0' }
   assert.deepEqual(parsePackOutput(JSON.stringify([report])), report)
   assert.deepEqual(parsePackOutput(JSON.stringify(report)), report)
+  assert.deepEqual(parsePackOutput(JSON.stringify({ [report.name]: report })), report)
 })
 
 test('parsePackOutput rejects invalid or ambiguous reports', () => {
-  for (const value of [[], [{}, {}], null, 'report', 1, [[]]]) {
+  for (const value of [[], [{}, {}], {}, { one: {}, two: {} }, null, 'report', 1, [[]]]) {
     assert.throws(() => parsePackOutput(JSON.stringify(value)), /unexpected report/)
   }
 })
