@@ -86,7 +86,7 @@
     "@biomejs/biome": "2.5.12",
     "@nestjs/common": "^11.1.16",
     "@nestjs/core": "^11.1.16",
-    "@ficsysfr/nestjs_module_factorydrive": "npm:@tacxou/nestjs_module_factorydrive@1.2.4",
+    "@ficsysfr/nestjs_module_factorydrive": "^2.0.0",
     "@types/node": "latest",
     "@types/ssh2-sftp-client": "^9.0.4",
     "@vitest/coverage-v8": "^5.0.0",

@@ -91,10 +91,10 @@
   resolved "https://registry.yarnpkg.com/@borewit/text-codec/-/text-codec-0.2.2.tgz#75025f735c0983b3a871668804a57387e3649375"
   integrity sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==
 
-"@ficsysfr/nestjs_module_factorydrive@npm:@tacxou/nestjs_module_factorydrive@1.2.4":
-  version "1.2.4"
-  resolved "https://registry.yarnpkg.com/@tacxou/nestjs_module_factorydrive/-/nestjs_module_factorydrive-1.2.4.tgz#779f825283a9531cfe8ea6ee1743cdc1b813d196"
-  integrity sha512-CcCFeJM0syYtOMMgFhYiMiclqJzaMoBTO/hOfdxT+2dWibX5Syqh1wEBkaJqNtWpIQTvT1toD6pQLgXkHCUgAQ==
+"@ficsysfr/nestjs_module_factorydrive@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@ficsysfr/nestjs_module_factorydrive/-/nestjs_module_factorydrive-2.0.0.tgz#b4414498f24d420fe56326703ae42157f4470b3a"
+  integrity sha512-s0MwJE+1WUIdMTxsDc1tbwUDNQJfAjpcPphQsDoQOSHENV7L/nBNPhsK+nPmc+QeoCUROYZ/Pq4jyZUlblwIrg==
   dependencies:
     fs-extra "^11.3.4"
     node-exceptions "^4.0.1"
