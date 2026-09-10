@@ -1,23 +1,23 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
-    "types": ["node"],
-    "lib": ["es7"],
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
     "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "target": "es2017",
+    "declarationMap": true,
     "sourceMap": true,
+    "newLine": "lf",
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
-    "noLib": false,
-    "incremental": true,
-    "moduleResolution": "node",
+    "strict": true,
+    "skipLibCheck": true,
     "esModuleInterop": true,
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "forceConsistentCasingInFileNames": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

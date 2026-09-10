@@ -1,30 +1,36 @@
+import { PassThrough } from 'node:stream'
 import {
   AbstractStorage,
-  ContentResponse,
-  DeleteResponse,
-  ExistsResponse,
-  FileListResponse,
+  type ContentResponse,
+  type DeleteResponse,
+  type ExistsResponse,
+  type FileListResponse,
   FileNotFoundException,
   NoSuchBucketException,
   PermissionMissingException,
-  Response,
-  StatResponse,
+  type Response,
+  type StatResponse,
   UnknownException,
-} from '@tacxou/nestjs_module_factorydrive'
-import { PassThrough } from 'node:stream'
-import Client, { ConnectOptions } from 'ssh2-sftp-client'
+} from '@ficsysfr/nestjs_module_factorydrive'
+import Client, { type ConnectOptions } from 'ssh2-sftp-client'
 
-function handleError(err: Error, path: string, name: string): Error {
-  switch (err.name) {
+function handleError(err: unknown, path: string, name?: string): Error {
+  const error = err instanceof Error ? err : new Error(String(err))
+  const storageName = name ?? path
+  switch (error.name) {
     case 'NoSuchBucket':
-      return new NoSuchBucketException(err, name)
+      return new NoSuchBucketException(error, storageName)
     case 'NoSuchKey':
-      return new FileNotFoundException(err, path)
+      return new FileNotFoundException(error, path)
     case 'AllAccessDisabled':
-      return new PermissionMissingException(err, path)
+      return new PermissionMissingException(error, path)
     default:
-      return new UnknownException(err, err.name, path)
+      return new UnknownException(error, error.name, path)
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 404
 }
 
 export interface SFTPStorageConfig {
@@ -44,7 +50,7 @@ export class SFTPStorage extends AbstractStorage {
     try {
       await this.$driver.connect(this.$config.options)
     } catch (e) {
-      throw new UnknownException(e, e.name, this.$config.options.host)
+      throw handleError(e, this.$config.options.host ?? '', this.$config.options.host)
     }
   }
 
@@ -76,7 +82,7 @@ export class SFTPStorage extends AbstractStorage {
 
       return { exists: !!result, raw: result }
     } catch (e) {
-      if (e.statusCode === 404) {
+      if (isNotFound(e)) {
         return { exists: false, raw: e }
       } else {
         throw handleError(e, location, this.$config.options.host)

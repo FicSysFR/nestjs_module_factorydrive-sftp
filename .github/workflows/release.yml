@@ -1,84 +1,190 @@
-name: Release
+name: Release SFTP
 
 permissions:
   contents: write
+  id-token: write
 
 on:
   workflow_dispatch:
     inputs:
-      version_increment:
-        description: 'La version a incrementer (major, minor, patch)'
+      release_version:
+        description: 'Exact stable SemVer version to publish (X.Y.Z)'
         required: true
-        default: 'patch'
+        default: '2.0.0'
+        type: string
+      channel:
+        description: 'npm dist-tag'
+        required: true
+        default: latest
         type: choice
         options:
-          - 'major'
-          - 'minor'
-          - 'patch'
+          - latest
+          - next
+
+concurrency:
+  group: release-${{ inputs.release_version }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: npm
 
     steps:
-      - name: Checkout code
+      - name: Checkout main with complete history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
-      - name: Setup Node.js
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-
-      - name: Bump package.json version
-        run: npm version ${{ inputs.version_increment }} --no-git-tag-version
-
-      - name: Read new version
-        id: version
-        run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Commit version bump
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: 'chore(release): bump version to ${{ steps.version.outputs.value }}'
-          file_pattern: package.json
-
-      - name: Create and push tag
-        id: tag
-        run: |
-          tag="v${{ steps.version.outputs.value }}"
-          echo "value=$tag" >> $GITHUB_OUTPUT
-          git tag "$tag"
-          git push origin "$tag"
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run tests
-        run: bun test
-
-      - name: Build project
-        run: bun run build
-
-      - name: Setup Node.js for NPM
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@latest
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Resolve idempotent release state
+        id: state
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: |
+          node scripts/release.mjs prepare "$RELEASE_VERSION" "$RELEASE_CHANNEL"
+          git fetch origin main --tags
+          tag="v${RELEASE_VERSION}"
+          if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+            git reset --hard
+            git checkout --detach "${tag}"
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existing=false" >> "$GITHUB_OUTPUT"
+            echo "base_sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare manifest and exact release notes
+        if: steps.state.outputs.existing != 'true'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: node scripts/release.mjs prepare "$RELEASE_VERSION" "$RELEASE_CHANNEL"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run complete release validation
+        run: |
+          yarn lint:ci
+          yarn typecheck
+          yarn test:coverage
+          yarn build
+          yarn changelog:check
+          yarn test:scripts
+          yarn package:check
+
+      - name: Commit synchronized release state
+        if: steps.state.outputs.existing != 'true'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json CHANGELOG.md changelog/
+          git commit --allow-empty -m "chore(release): ${RELEASE_VERSION}"
+
+      - name: Rebase when main advanced concurrently
+        if: steps.state.outputs.existing != 'true'
+        id: rebase
+        env:
+          BASE_SHA: ${{ steps.state.outputs.base_sha }}
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
+            git rebase origin/main
+            echo "revalidated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "revalidated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Revalidate after concurrent main advancement
+        if: steps.rebase.outputs.revalidated == 'true'
+        run: |
+          yarn install --frozen-lockfile
+          yarn lint:ci
+          yarn typecheck
+          yarn test:coverage
+          yarn build
+          yarn changelog:check
+          yarn test:scripts
+          yarn package:check
+
+      - name: Push release commit and immutable tag
+        if: steps.state.outputs.existing != 'true'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          git push origin HEAD:main
+          tag="v${RELEASE_VERSION}"
+          git tag -a "$tag" -m "Factorydrive SFTP ${RELEASE_VERSION}"
+          git push origin "$tag"
+
+      - name: Verify release tag and rebuild audited tarball
+        id: release
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          git fetch origin "refs/tags/v${RELEASE_VERSION}:refs/tags/v${RELEASE_VERSION}"
+          release_sha="$(git rev-list -n 1 "v${RELEASE_VERSION}")"
+          test "$release_sha" = "$(git rev-parse HEAD)"
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+          yarn package:check
+
+      - name: Publish if missing and verify registry bytes
+        env:
+          # Bootstrap 2.0.0 only. Configure this as a one-day secret in the
+          # protected npm environment, then remove it after Trusted Publishing.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          tarball=".artifacts/npm/ficsysfr-nestjs_module_factorydrive-sftp-${RELEASE_VERSION}.tgz"
+          if npm view "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}" version >/dev/null 2>&1; then
+            echo "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION} already exists; verifying it"
+          else
+            npm publish "$tarball" --access public --provenance --tag "$RELEASE_CHANNEL"
+          fi
+          published_channel="$(npm view "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_CHANNEL}" version)"
+          test "$published_channel" = "$RELEASE_VERSION"
+          mkdir -p .artifacts/registry
+          packed_json="$(npm pack "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}" --json --ignore-scripts --pack-destination .artifacts/registry)"
+          packed_file="$(node -e 'const input=JSON.parse(process.argv[1]); process.stdout.write(input[0].filename)' "$packed_json")"
+          local_sha="$(sha256sum "$tarball" | cut -d' ' -f1)"
+          registry_sha="$(sha256sum ".artifacts/registry/${packed_file}" | cut -d' ' -f1)"
+          test "$local_sha" = "$registry_sha"
+
+      - name: Upload audited release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ steps.tag.outputs.value }}
-          generate_release_notes: true
+          name: npm-package-${{ inputs.release_version }}
+          path: |
+            .artifacts/npm/
+            .artifacts/release/${{ inputs.release_version }}.md
+          if-no-files-found: error
+
+      - name: Create or update the exact GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          tag="v${RELEASE_VERSION}"
+          notes=".artifacts/release/${RELEASE_VERSION}.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$RELEASE_VERSION" --notes-file "$notes"
+          else
+            gh release create "$tag" --verify-tag --target "$RELEASE_SHA" --title "$RELEASE_VERSION" --notes-file "$notes"
+          fi
+          gh release upload "$tag" .artifacts/npm/*.tgz .artifacts/npm/SHA256SUMS.txt --clobber

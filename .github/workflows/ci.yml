@@ -1,6 +1,8 @@
 name: CI
+
 permissions:
   contents: read
+  id-token: write
 
 on:
   push:
@@ -13,49 +15,56 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: '24'
+          cache: yarn
 
       - name: Install dependencies
-        run: bun install
+        run: yarn install --frozen-lockfile
+
+      - name: Run Biome checks
+        run: yarn lint:ci
+
+      - name: Typecheck
+        run: yarn typecheck
 
       - name: Run tests with coverage
-        run: bun test --coverage --coverage-reporter lcov
+        run: yarn test:coverage
+
+      - name: Build project
+        run: yarn build
+
+      - name: Test release and packaging scripts
+        run: yarn test:scripts
+
+      - name: Validate changelog sources
+        run: yarn changelog:check
+
+      - name: Audit npm tarball
+        run: yarn package:check
+
+      - name: Upload package audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-audit
+          path: .artifacts/npm/
+          if-no-files-found: error
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: tacxou/nestjs_module_factorydrive-sftp
+          use_oidc: true
+          slug: ${{ github.repository }}
           files: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: false
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build project
-        run: bun run build
+          fail_ci_if_error: true

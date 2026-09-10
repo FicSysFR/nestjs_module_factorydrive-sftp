@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.artifacts/
+coverage/
 
 yarn-debug.log*
 yarn-error.log*

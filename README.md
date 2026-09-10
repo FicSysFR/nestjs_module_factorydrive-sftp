@@ -9,9 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/org/tacxou"><img src="https://img.shields.io/npm/v/@tacxou/nestjs_module_factorydrive-sftp.svg" alt="NPM Version" /></a>
-  <a href="https://www.npmjs.com/org/tacxou"><img src="https://img.shields.io/npm/l/@tacxou/nestjs_module_factorydrive-sftp.svg" alt="Package License" /></a>
-  <a href="https://github.com/tacxou/nestjs_module_rcon/actions/workflows/ci.yml"><img src="https://github.com/tacxou/nestjs_module_factorydrive-sftp/actions/workflows/ci.yml/badge.svg" alt="Publish Package to npmjs" /></a>
+  <a href="https://www.npmjs.com/org/ficsysfr"><img src="https://img.shields.io/npm/v/@ficsysfr/nestjs_module_factorydrive-sftp.svg" alt="NPM Version" /></a>
+  <a href="https://www.npmjs.com/org/ficsysfr"><img src="https://img.shields.io/npm/l/@ficsysfr/nestjs_module_factorydrive-sftp.svg" alt="Package License" /></a>
+  <a href="https://github.com/FicSysFR/nestjs_module_factorydrive-sftp/actions/workflows/ci.yml"><img src="https://github.com/FicSysFR/nestjs_module_factorydrive-sftp/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://codecov.io/gh/FicSysFR/nestjs_module_factorydrive-sftp"><img src="https://codecov.io/gh/FicSysFR/nestjs_module_factorydrive-sftp/graph/badge.svg" alt="Coverage" /></a>
 </p>
 <br>
 
@@ -24,29 +25,29 @@ Install both packages with your favorite package manager.
 
 ```bash
 # npm
-npm install @tacxou/nestjs_module_factorydrive @tacxou/nestjs_module_factorydrive-sftp
+npm install @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydrive-sftp
 ```
 
 ```bash
 # yarn
-yarn add @tacxou/nestjs_module_factorydrive @tacxou/nestjs_module_factorydrive-sftp
+yarn add @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydrive-sftp
 ```
 
 ```bash
 # pnpm
-pnpm add @tacxou/nestjs_module_factorydrive @tacxou/nestjs_module_factorydrive-sftp
+pnpm add @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydrive-sftp
 ```
 
 ```bash
 # bun
-bun add @tacxou/nestjs_module_factorydrive @tacxou/nestjs_module_factorydrive-sftp
+bun add @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydrive-sftp
 ```
 
 ## Register the driver
 ```ts
 import { Module } from '@nestjs/common'
-import { FactorydriveService } from '@the-software-compagny/nestjs_module_factorydrive'
-import { SFTPStorage } from '@tacxou/nestjs_module_factorydrive-sftp'
+import { FactorydriveService } from '@ficsysfr/nestjs_module_factorydrive'
+import { SFTPStorage } from '@ficsysfr/nestjs_module_factorydrive-sftp'
 
 @Module({
   //...
@@ -62,7 +63,7 @@ export class AppModule {
 ## Example configuration
 
 ```ts
-import { FactorydriveService } from '@the-software-compagny/nestjs_module_factorydrive'
+import { FactorydriveService } from '@ficsysfr/nestjs_module_factorydrive'
 
 export class StorageBootstrap {
   public constructor(private readonly storage: FactorydriveService) {}
@@ -95,3 +96,21 @@ const content = await disk.get('documents/report.txt')
 
 console.log({ exists: exists.exists, content: content.content })
 ```
+
+## Development
+
+This repository uses Yarn 1.22.22, Biome, Vitest, and TypeScript:
+
+```bash
+yarn install --frozen-lockfile
+yarn lint
+yarn typecheck
+yarn test
+yarn test:coverage
+yarn build
+yarn package:check
+```
+
+Use `make check` for every local quality gate, `yarn package` or `make package` for
+the audited tarball under `.artifacts/npm/`, and
+`make release VERSION=2.0.0 CHANNEL=latest WATCH=1` for the manual release workflow.

@@ -1,17 +1,17 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type ConnectOptions = { host: string; username: string; password: string }
 
 class MockSftpClient {
   public readonly host: string
-  public connect = mock(async (_options: ConnectOptions) => undefined)
-  public rcopy = mock(async (_src: string, _dest: string) => 'copied')
-  public delete = mock(async (_location: string) => 'deleted')
-  public exists = mock(async (_location: string) => true)
-  public get = mock(async (_location: string) => Buffer.from('hello'))
-  public stat = mock(async (_location: string) => ({ size: 42, modifyTime: 1700000000000 }))
-  public list = mock(async (_location: string) => [] as Array<{ name: string; type: 'd' | '-' }>)
-  public put = mock(async (_content: unknown, _location: string) => 'uploaded')
+  public connect = vi.fn(async (_options: ConnectOptions) => undefined)
+  public rcopy = vi.fn(async (_src: string, _dest: string) => 'copied')
+  public delete = vi.fn(async (_location: string) => 'deleted')
+  public exists = vi.fn(async (_location: string) => true)
+  public get = vi.fn(async (_location: string) => Buffer.from('hello'))
+  public stat = vi.fn(async (_location: string) => ({ size: 42, modifyTime: 1700000000000 }))
+  public list = vi.fn(async (_location: string) => [] as Array<{ name: string; type: 'd' | '-' }>)
+  public put = vi.fn(async (_content: unknown, _location: string) => 'uploaded')
 
   public constructor(host: string) {
     this.host = host
@@ -52,11 +52,11 @@ class PermissionMissingException extends Error {
   }
 }
 
-mock.module('ssh2-sftp-client', () => ({
+vi.doMock('ssh2-sftp-client', () => ({
   default: MockSftpClient,
 }))
 
-mock.module('@the-software-compagny/nestjs_module_factorydrive', () => ({
+vi.doMock('@ficsysfr/nestjs_module_factorydrive', () => ({
   AbstractStorage,
   FileNotFoundException,
   NoSuchBucketException,
@@ -64,9 +64,9 @@ mock.module('@the-software-compagny/nestjs_module_factorydrive', () => ({
   UnknownException,
 }))
 
-const { SFTPStorage } = await import('../src/sftp.storage')
+const { SFTPStorage } = await import('../src/sftp.storage.js')
 
-describe('SFTPStorage (bun)', () => {
+describe('SFTPStorage', () => {
   let storage: InstanceType<typeof SFTPStorage>
   let driver: MockSftpClient
 
@@ -102,7 +102,7 @@ describe('SFTPStorage (bun)', () => {
 
   it('retourne exists=false quand le driver renvoie 404', async () => {
     const notFound = { statusCode: 404 }
-    driver.exists = mock(async () => {
+    driver.exists = vi.fn(async () => {
       throw notFound
     })
 
@@ -112,8 +112,8 @@ describe('SFTPStorage (bun)', () => {
   })
 
   it('move appelle copy puis delete avec les bons chemins', async () => {
-    const copySpy = mock(storage.copy.bind(storage))
-    const deleteSpy = mock(storage.delete.bind(storage))
+    const copySpy = vi.fn(storage.copy.bind(storage))
+    const deleteSpy = vi.fn(storage.delete.bind(storage))
     ;(storage as unknown as { copy: typeof copySpy }).copy = copySpy
     ;(storage as unknown as { delete: typeof deleteSpy }).delete = deleteSpy
 
@@ -125,7 +125,7 @@ describe('SFTPStorage (bun)', () => {
   })
 
   it('flatList retourne les fichiers de facon recursive', async () => {
-    driver.list = mock(async (location: string) => {
+    driver.list = vi.fn(async (location: string) => {
       if (location === '/bucket') {
         return [{ name: 'docs', type: 'd' as const }]
       }

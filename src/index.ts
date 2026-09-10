@@ -1,1 +1,1 @@
-export * from './sftp.storage'
+export * from './sftp.storage.js'
