@@ -157,16 +157,42 @@ jobs:
           RELEASE_CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
+          wait_for_version() {
+            local package_spec="$1"
+            local expected_version="$2"
+            local published_version=""
+            for attempt in $(seq 1 18); do
+              published_version="$(npm view "$package_spec" version 2>/dev/null || true)"
+              if [ "$published_version" = "$expected_version" ]; then
+                return 0
+              fi
+              [ "$attempt" -eq 18 ] || sleep 10
+            done
+            echo "npm registry did not expose ${package_spec} as ${expected_version} in time" >&2
+            return 1
+          }
+          pack_from_registry() {
+            local package_spec="$1"
+            local packed_json=""
+            for attempt in $(seq 1 18); do
+              if packed_json="$(npm pack "$package_spec" --json --ignore-scripts --pack-destination .artifacts/registry 2>/dev/null)"; then
+                printf '%s' "$packed_json"
+                return 0
+              fi
+              [ "$attempt" -eq 18 ] || sleep 10
+            done
+            echo "npm registry did not expose the tarball for ${package_spec} in time" >&2
+            return 1
+          }
           tarball=".artifacts/npm/ficsysfr-nestjs_module_factorydrive-sftp-${RELEASE_VERSION}.tgz"
           if npm view "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}" version >/dev/null 2>&1; then
             echo "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION} already exists; verifying it"
           else
             npm publish "$tarball" --access public --provenance --tag "$RELEASE_CHANNEL"
           fi
-          published_channel="$(npm view "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_CHANNEL}" version)"
-          test "$published_channel" = "$RELEASE_VERSION"
+          wait_for_version "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_CHANNEL}" "$RELEASE_VERSION"
           mkdir -p .artifacts/registry
-          packed_json="$(npm pack "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}" --json --ignore-scripts --pack-destination .artifacts/registry)"
+          packed_json="$(pack_from_registry "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}")"
           packed_file="$(node -e 'const input=JSON.parse(process.argv[1]); const reports=Array.isArray(input)?input:input?.filename?[input]:Object.values(input??{}); if (reports.length!==1 || !reports[0]?.filename) process.exit(1); process.stdout.write(reports[0].filename)' "$packed_json")"
           local_sha="$(sha256sum "$tarball" | cut -d' ' -f1)"
           registry_sha="$(sha256sum ".artifacts/registry/${packed_file}" | cut -d' ' -f1)"
