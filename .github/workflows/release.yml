@@ -167,7 +167,7 @@ jobs:
           test "$published_channel" = "$RELEASE_VERSION"
           mkdir -p .artifacts/registry
           packed_json="$(npm pack "@ficsysfr/nestjs_module_factorydrive-sftp@${RELEASE_VERSION}" --json --ignore-scripts --pack-destination .artifacts/registry)"
-          packed_file="$(node -e 'const input=JSON.parse(process.argv[1]); process.stdout.write(input[0].filename)' "$packed_json")"
+          packed_file="$(node -e 'const input=JSON.parse(process.argv[1]); const report=Array.isArray(input)?input[0]:input; if (!report?.filename) process.exit(1); process.stdout.write(report.filename)' "$packed_json")"
           local_sha="$(sha256sum "$tarball" | cut -d' ' -f1)"
           registry_sha="$(sha256sum ".artifacts/registry/${packed_file}" | cut -d' ' -f1)"
           test "$local_sha" = "$registry_sha"
