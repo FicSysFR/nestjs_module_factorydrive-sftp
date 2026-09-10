@@ -72,9 +72,13 @@ jobs:
         run: node scripts/release.mjs prepare "$RELEASE_VERSION" "$RELEASE_CHANNEL"
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: unused
         run: yarn install --frozen-lockfile
 
       - name: Run complete release validation
+        env:
+          NODE_AUTH_TOKEN: unused
         run: |
           yarn lint:ci
           yarn typecheck
@@ -110,6 +114,8 @@ jobs:
 
       - name: Revalidate after concurrent main advancement
         if: steps.rebase.outputs.revalidated == 'true'
+        env:
+          NODE_AUTH_TOKEN: unused
         run: |
           yarn install --frozen-lockfile
           yarn lint:ci
@@ -133,6 +139,7 @@ jobs:
       - name: Verify release tag and rebuild audited tarball
         id: release
         env:
+          NODE_AUTH_TOKEN: unused
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           git fetch origin "refs/tags/v${RELEASE_VERSION}:refs/tags/v${RELEASE_VERSION}"
