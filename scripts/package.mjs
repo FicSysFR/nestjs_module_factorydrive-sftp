@@ -55,6 +55,16 @@ export function validateSatellitePack(report) {
   if (unexpected) throw new Error(`Tarball contains non-allowlisted path ${unexpected}`)
 }
 
+export function parsePackOutput(output) {
+  const parsed = JSON.parse(output)
+  const reports = Array.isArray(parsed) ? parsed : [parsed]
+  const report = reports[0]
+  if (reports.length !== 1 || report === null || typeof report !== 'object' || Array.isArray(report)) {
+    throw new Error('npm pack returned an unexpected report')
+  }
+  return report
+}
+
 export async function packageAndAudit(projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')) {
   const manifest = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'))
   validateSatelliteManifest(manifest)
@@ -63,7 +73,7 @@ export async function packageAndAudit(projectRoot = resolve(dirname(fileURLToPat
   await rm(artifactsRoot, { recursive: true, force: true })
   await mkdir(artifactsRoot, { recursive: true })
   run('yarn', ['build'], projectRoot)
-  const report = JSON.parse(run('npm', ['pack', '.', '--json', '--ignore-scripts', '--pack-destination', artifactsRoot], projectRoot))[0]
+  const report = parsePackOutput(run('npm', ['pack', '.', '--json', '--ignore-scripts', '--pack-destination', artifactsRoot], projectRoot))
   validateSatellitePack(report)
 
   const tarball = join(artifactsRoot, report.filename)

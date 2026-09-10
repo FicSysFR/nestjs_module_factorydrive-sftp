@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { validateSatelliteManifest, validateSatellitePack } from '../package.mjs'
+import { parsePackOutput, validateSatelliteManifest, validateSatellitePack } from '../package.mjs'
 
 const requiredFiles = [{ path: 'LICENSE' }, { path: 'README.md' }, { path: 'dist/index.d.ts' }, { path: 'dist/index.js' }, { path: 'package.json' }]
+
+test('parsePackOutput supports npm 11 and npm 12 reports', () => {
+  const report = { name: '@ficsysfr/nestjs_module_factorydrive-sftp', version: '2.0.0' }
+  assert.deepEqual(parsePackOutput(JSON.stringify([report])), report)
+  assert.deepEqual(parsePackOutput(JSON.stringify(report)), report)
+})
+
+test('parsePackOutput rejects invalid or ambiguous reports', () => {
+  for (const value of [[], [{}, {}], null, 'report', 1, [[]]]) {
+    assert.throws(() => parsePackOutput(JSON.stringify(value)), /unexpected report/)
+  }
+})
 
 test('validateSatelliteManifest enforces identity, SemVer, and core major', () => {
   assert.doesNotThrow(() =>
