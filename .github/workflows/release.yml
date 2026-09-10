@@ -161,12 +161,12 @@ jobs:
             local package_spec="$1"
             local expected_version="$2"
             local published_version=""
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 60); do
               published_version="$(npm view "$package_spec" version 2>/dev/null || true)"
               if [ "$published_version" = "$expected_version" ]; then
                 return 0
               fi
-              [ "$attempt" -eq 18 ] || sleep 10
+              [ "$attempt" -eq 60 ] || sleep 10
             done
             echo "npm registry did not expose ${package_spec} as ${expected_version} in time" >&2
             return 1
@@ -174,12 +174,12 @@ jobs:
           pack_from_registry() {
             local package_spec="$1"
             local packed_json=""
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 60); do
               if packed_json="$(npm pack "$package_spec" --json --ignore-scripts --pack-destination .artifacts/registry 2>/dev/null)"; then
                 printf '%s' "$packed_json"
                 return 0
               fi
-              [ "$attempt" -eq 18 ] || sleep 10
+              [ "$attempt" -eq 60 ] || sleep 10
             done
             echo "npm registry did not expose the tarball for ${package_spec} in time" >&2
             return 1
