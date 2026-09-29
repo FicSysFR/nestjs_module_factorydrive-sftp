@@ -306,6 +306,18 @@ describe('SFTPStorage', () => {
       expect((error as UnknownException).target).toBe('sftp.example.com')
     })
 
+    it("mappe l'echec de connexion sans hote configure", async () => {
+      const sockStorage = new SFTPStorage({ root: '/bucket/', options: { username: 'john', password: 'secret' } })
+      const sockDriver = sockStorage.driver() as unknown as MockSftpClient
+      sockDriver.connect = vi.fn(async () => {
+        throw sftpError('ECONNREFUSED')
+      })
+
+      const error = await sockStorage.onStorageInit().catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(UnknownException)
+      expect((error as UnknownException).target).toBe('')
+    })
+
     it('mappe les erreurs de copy sur le chemin source', async () => {
       driver.rcopy = vi.fn(async () => {
         throw sftpError(2)
