@@ -294,5 +294,47 @@ describe('SFTPStorage', () => {
       expect(error).toBeInstanceOf(UnknownException)
       expect((error as UnknownException).code).toBe('NoSuchKey')
     })
+
+    it("mappe l'echec de connexion sur l'hote", async () => {
+      driver.connect = vi.fn(async () => {
+        throw sftpError('ERR_BAD_AUTH')
+      })
+
+      const error = await storage.onStorageInit().catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(UnknownException)
+      expect((error as UnknownException).code).toBe('ERR_BAD_AUTH')
+      expect((error as UnknownException).target).toBe('sftp.example.com')
+    })
+
+    it('mappe les erreurs de copy sur le chemin source', async () => {
+      driver.rcopy = vi.fn(async () => {
+        throw sftpError(2)
+      })
+
+      const error = await storage.copy('from.txt', 'to.txt').catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(FileNotFoundException)
+      expect((error as { target: string }).target).toBe('from.txt')
+    })
+
+    it('mappe les erreurs de exists autres que 404', async () => {
+      driver.exists = vi.fn(async () => {
+        throw sftpError(3)
+      })
+
+      await expect(storage.exists('docs/a.txt')).rejects.toBeInstanceOf(PermissionMissingException)
+    })
+
+    it('mappe les erreurs de listing pendant flatList', async () => {
+      driver.list = vi.fn(async () => {
+        throw sftpError(2)
+      })
+
+      const iterate = async () => {
+        for await (const _item of storage.flatList('docs/')) {
+          // consomme l'iterateur
+        }
+      }
+      await expect(iterate()).rejects.toBeInstanceOf(FileNotFoundException)
+    })
   })
 })
