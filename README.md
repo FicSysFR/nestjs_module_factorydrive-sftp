@@ -43,44 +43,41 @@ pnpm add @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydri
 bun add @ficsysfr/nestjs_module_factorydrive @ficsysfr/nestjs_module_factorydrive-sftp
 ```
 
-## Register the driver
+## Configure a disk and register the driver
+
+Declare the SFTP disk in `FactorydriveModule.forRoot()` (or `forRootAsync()`), then
+register the `sftp` driver key in the module constructor. Disks are connected during
+`onModuleInit`, after the driver has been registered.
+
 ```ts
 import { Module } from '@nestjs/common'
-import { FactorydriveService } from '@ficsysfr/nestjs_module_factorydrive'
+import { FactorydriveModule, FactorydriveService } from '@ficsysfr/nestjs_module_factorydrive'
 import { SFTPStorage } from '@ficsysfr/nestjs_module_factorydrive-sftp'
 
 @Module({
-  //...
+  imports: [
+    FactorydriveModule.forRoot({
+      default: 'remote',
+      disks: {
+        remote: {
+          driver: 'sftp',
+          config: {
+            root: '/var/www/storage',
+            options: {
+              host: 'sftp.example.com',
+              port: 22,
+              username: 'my-user',
+              password: process.env.SFTP_PASSWORD,
+            },
+          },
+        },
+      },
+    }),
+  ],
 })
 export class AppModule {
   public constructor(storage: FactorydriveService) {
-    // Register the "sftp" driver key once at bootstrap
     storage.registerDriver('sftp', SFTPStorage)
-  }
-}
-```
-
-## Example configuration
-
-```ts
-import { FactorydriveService } from '@ficsysfr/nestjs_module_factorydrive'
-
-export class StorageBootstrap {
-  public constructor(private readonly storage: FactorydriveService) {}
-
-  public async init(): Promise<void> {
-    await this.storage.createDisk('remote', {
-      driver: 'sftp',
-      config: {
-        root: '/var/www/storage',
-        options: {
-          host: 'sftp.example.com',
-          port: 22,
-          username: 'my-user',
-          password: 'my-password',
-        },
-      },
-    })
   }
 }
 ```
@@ -88,14 +85,22 @@ export class StorageBootstrap {
 ## Example operations
 
 ```ts
-const disk = this.storage.disk('remote')
+const disk = this.storage.getDisk('remote')
 
+// A string is written as file content.
 await disk.put('documents/report.txt', 'Hello from SFTP storage')
 const exists = await disk.exists('documents/report.txt')
 const content = await disk.get('documents/report.txt')
 
 console.log({ exists: exists.exists, content: content.content })
 ```
+
+## Errors
+
+SFTP failures are mapped to the Factorydrive exceptions: a missing file (SFTP status 2 /
+`ENOENT`) raises `FileNotFoundException`, a denied access (SFTP status 3 / `EACCES`)
+raises `PermissionMissingException`, and anything else raises `UnknownException` with the
+original code. `getStream()` reports these errors on the returned stream.
 
 ## Development
 
