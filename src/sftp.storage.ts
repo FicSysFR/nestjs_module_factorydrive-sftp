@@ -6,7 +6,6 @@ import {
   type ExistsResponse,
   type FileListResponse,
   FileNotFoundException,
-  NoSuchBucketException,
   PermissionMissingException,
   type Response,
   type StatResponse,
@@ -14,18 +13,22 @@ import {
 } from '@ficsysfr/nestjs_module_factorydrive'
 import Client, { type ConnectOptions } from 'ssh2-sftp-client'
 
-function handleError(err: unknown, path: string, name?: string): Error {
+// ssh2 SFTP status codes, kept numeric by ssh2-sftp-client on get/put/delete/list.
+const SFTP_STATUS_NO_SUCH_FILE = 2
+const SFTP_STATUS_PERMISSION_DENIED = 3
+
+function handleError(err: unknown, path: string): Error {
   const error = err instanceof Error ? err : new Error(String(err))
-  const storageName = name ?? path
-  switch (error.name) {
-    case 'NoSuchBucket':
-      return new NoSuchBucketException(error, storageName)
-    case 'NoSuchKey':
+  const code: unknown = (error as { code?: unknown }).code
+  switch (code) {
+    case SFTP_STATUS_NO_SUCH_FILE:
+    case 'ENOENT':
       return new FileNotFoundException(error, path)
-    case 'AllAccessDisabled':
+    case SFTP_STATUS_PERMISSION_DENIED:
+    case 'EACCES':
       return new PermissionMissingException(error, path)
     default:
-      return new UnknownException(error, error.name, path)
+      return new UnknownException(error, code === undefined ? error.name : String(code), path)
   }
 }
 
@@ -50,7 +53,7 @@ export class SFTPStorage extends AbstractStorage {
     try {
       await this.$driver.connect(this.$config.options)
     } catch (e) {
-      throw handleError(e, this.$config.options.host ?? '', this.$config.options.host)
+      throw handleError(e, this.$config.options.host ?? '')
     }
   }
 
@@ -63,7 +66,7 @@ export class SFTPStorage extends AbstractStorage {
       const result = await this.$driver.rcopy(this._fullPath(src), this._fullPath(dest))
       return { raw: result }
     } catch (e) {
-      throw handleError(e, src, this.$config.options.host)
+      throw handleError(e, src)
     }
   }
 
@@ -72,7 +75,7 @@ export class SFTPStorage extends AbstractStorage {
       const result = await this.$driver.delete(this._fullPath(location))
       return { raw: result, wasDeleted: null }
     } catch (e) {
-      throw handleError(e, location, this.$config.options.host)
+      throw handleError(e, location)
     }
   }
 
@@ -85,13 +88,13 @@ export class SFTPStorage extends AbstractStorage {
       if (isNotFound(e)) {
         return { exists: false, raw: e }
       } else {
-        throw handleError(e, location, this.$config.options.host)
+        throw handleError(e, location)
       }
     }
   }
 
   public async get(location: string, encoding: BufferEncoding = 'utf-8'): Promise<ContentResponse<string>> {
-    const bufferResult = await this.getBuffer(this._fullPath(location))
+    const bufferResult = await this.getBuffer(location)
     return {
       content: bufferResult.content.toString(encoding),
       raw: bufferResult.raw,
@@ -103,7 +106,7 @@ export class SFTPStorage extends AbstractStorage {
       const result = (await this.$driver.get(this._fullPath(location))) as Buffer
       return { content: Buffer.from(result), raw: result }
     } catch (e) {
-      throw handleError(e, location, this.$config.options.host)
+      throw handleError(e, location)
     }
   }
 
@@ -116,16 +119,24 @@ export class SFTPStorage extends AbstractStorage {
         raw: result,
       }
     } catch (e) {
-      throw handleError(e, location, this.$config.options.host)
+      throw handleError(e, location)
     }
   }
 
   public async getStream(location: string): Promise<NodeJS.ReadableStream> {
-    const passThrough = new PassThrough()
-    const stream = (await this.$driver.get(this._fullPath(location))) as NodeJS.WritableStream
-    passThrough.pipe(stream)
+    try {
+      const source = this.$driver.createReadStream(this._fullPath(location))
+      const output = new PassThrough()
+      // pipe() does not forward errors: surface them mapped on the returned stream,
+      // and release the remote handle when the consumer stops reading early.
+      source.on('error', (e: Error) => output.destroy(handleError(e, location)))
+      output.once('close', () => source.destroy())
+      source.pipe(output)
 
-    return passThrough
+      return output
+    } catch (e) {
+      throw handleError(e, location)
+    }
   }
 
   public async move(src: string, dest: string): Promise<Response> {
@@ -136,10 +147,12 @@ export class SFTPStorage extends AbstractStorage {
 
   public async put(location: string, content: Buffer | NodeJS.ReadableStream | string): Promise<Response> {
     try {
-      const result = this.$driver.put(content, this._fullPath(location))
+      // ssh2-sftp-client reads a string source as a local file path; the storage contract treats it as content.
+      const source = typeof content === 'string' ? Buffer.from(content) : content
+      const result = await this.$driver.put(source, this._fullPath(location))
       return { raw: result }
     } catch (e) {
-      throw handleError(e, location, this.$config.options.host)
+      throw handleError(e, location)
     }
   }
 
@@ -169,7 +182,7 @@ export class SFTPStorage extends AbstractStorage {
         }
       }
     } catch (e) {
-      throw handleError(e, prefix, this.$config.options.host)
+      throw handleError(e, prefix)
     }
   }
 
