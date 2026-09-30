@@ -1,6 +1,9 @@
 <p align="center">
-  <a href="http://nestjs.com/" target="blank">
-    <img src="https://nestjs.com/img/logo_text.svg" width="320" alt="Nest Logo" />
+  <a href="https://ficsysfr.github.io/nestjs_module_factorydrive/" target="blank">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FicSysFR/nestjs_module_factorydrive/main/docs/public/logo/logo-full-dark.svg" />
+      <img src="https://raw.githubusercontent.com/FicSysFR/nestjs_module_factorydrive/main/docs/public/logo/logo-full.svg" width="320" alt="Factory Drive logo" />
+    </picture>
   </a>
 </p>
 
@@ -117,5 +120,13 @@ yarn package:check
 ```
 
 Use `make check` for every local quality gate, `yarn package` or `make package` for
-the audited tarball under `.artifacts/npm/`, and
-`make release VERSION=2.0.0 CHANNEL=latest WATCH=1` for the manual release workflow.
+the audited tarball under `.artifacts/npm/`, `make release VERSION=2.0.1 CHANNEL=latest`
+to prepare the manifest and CHANGELOG locally, and
+`make release-ci VERSION=2.0.1 CHANNEL=latest WATCH=1` to dispatch the release workflow.
+
+## License
+
+Apache-2.0, see [`LICENSE`](./LICENSE). Copyright 2026 FicSys.
+
+Versions up to and including 2.0.0 were published under the MIT License and remain
+available under those terms.

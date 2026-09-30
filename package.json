@@ -19,7 +19,7 @@
       "url": "https://github.com/FicSysFR/nestjs_module_factorydrive-sftp/graphs/contributors"
     }
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
