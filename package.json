@@ -1,6 +1,6 @@
 {
   "name": "@ficsysfr/nestjs_module_factorydrive-sftp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "SFTP driver for @ficsysfr/nestjs_module_factorydrive",
   "repository": "https://github.com/FicSysFR/nestjs_module_factorydrive-sftp.git",
   "homepage": "https://ficsysfr.github.io/nestjs_module_factorydrive/guide/drivers",
