@@ -17,7 +17,7 @@ ncu: ## Check latest versions of all project dependencies
 ncu-upgrade: ## Upgrade all project dependencies to the latest versions
 	@npx npm-check-updates -u
 
-.PHONY: install lint typecheck test coverage build package check release
+.PHONY: install lint typecheck test coverage build package check release release-ci
 
 install: ## Install dependencies from the frozen Yarn lockfile
 	yarn install --frozen-lockfile
@@ -47,10 +47,15 @@ check: lint typecheck test build ## Run all local quality gates
 
 VERSION ?=
 CHANNEL ?= latest
+RELEASE_BRANCH ?= main
 WATCH ?= 0
+YES ?= 0
 
-release: ## Dispatch release.yml: make release VERSION=2.0.0 CHANNEL=latest WATCH=1
+release: ## Prepare release state locally (bump manifest + CHANGELOG): make release VERSION=2.0.1 CHANNEL=latest
 	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)
 	@test "$(CHANNEL)" = "latest" -o "$(CHANNEL)" = "next" || (echo "CHANNEL must be latest or next" && exit 1)
-	gh workflow run release.yml -f release_version=$(VERSION) -f channel=$(CHANNEL)
-	@if [ "$(WATCH)" = "1" ]; then sleep 3; gh run watch "$$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --exit-status; fi
+	yarn release:prepare $(VERSION) $(CHANNEL)
+
+release-ci: ## Dispatch release.yml: make release-ci VERSION=2.0.1 CHANNEL=latest WATCH=1 YES=1
+	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)
+	node scripts/release-ci.mjs --version "$(VERSION)" --channel "$(CHANNEL)" --branch "$(RELEASE_BRANCH)" $(if $(filter 1,$(WATCH)),--watch,) $(if $(filter 1,$(YES)),--yes,)
